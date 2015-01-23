@@ -202,14 +202,101 @@ undersea        features    undersea        Undersea                         201
 vegetation      features    vegetation      Forests, heaths, ...             2014-03-05T15:32:39.000Z  0.6918      48.73333    7.50873     52.26821    4326
 ----
 
-The `gpkg_contents` table provides basic metadata for each dataset.
+This shows us that there are nine different data sets inside this particular file.
+Each row specifies the name of the table containing the actual data, what kind of data it is, and some other basic metadata.
 
 The `data_type` column indicates the nature of the dataset.
-This can be set to either `features` or `tiles` to indicate geographic features or imagery tile matrices respectively.
-This particular GeoPackage file happens to only contain feature data.
+The base GeoPackage specification defines two types of data, `features` for Simple Feature data and `tiles` for image tile matrices.
+These provide a means to encoded data that is more or less equivalent to OGC's http://www.opengeospatial.org/standards/sfa[Simple Features] and http://www.opengeospatial.org/standards/wmts[Web Map Tile Service].
 
+The `min_x`, `min_y`, `max_x` and , `max_y` specify the area where the data set is located.
+This is just an approximation though and may be omitted.
+It also doesn't necessarily have to be an exact match for the actual data.
+The rectangle defined here may be larger or smaller than the area covered by the actual data.
+What that means is that you can use this to show users a preview of the location of the data set, but you shouldn't make to many assumptions based on this.
+
+The `srs_id` column specifies the coordinate system in which the previous columns are defined.
+It's a foreign key for a row in the `gpkg_spatial_ref_sys` table which we'll cover next.
+
+=== Spatial Reference Systems
+
+There are many ways to describe a location on the Earth.
+Sometimes you use coordinates specified in degrees, sometimes you use coordinates measured in meters or feet in some projection, etc.
+As an example the location of Ukkel, Belgium can be specified as 50°47′52″N, 4°21′33″E wrt WGS-84 or as 649328m, 665262m wrt Lambert 2008.
+If you don't know the how a coordinate was measure it is impossible to correctly interpret it since the coordinate values are all written in the database as simple numbers.
+
+The `gpkg_spatial_ref_sys` is where you need to look to determine how coordinates should be interpreted.
+Each row in this table describes a Spatial Reference System (SRS) (also known as a Coordinate Reference System (CRS)).
+An SRS is a local, regional or global coordinate system that can be used to describe locations on the Earth.
+A detailed discussion of SRSs is beyond the scope of this guide.
+Just remember that there are many different ones and that you need to specify the applicable SRS when exchanging coordinates information.
+Otherwise the two entities exchanging information may interpret the same location differently leading to incorrect results.
+This can be pretty dangerous depending on the system you're working on.
+
+Let's have a look at what `gpkg_spatial_ref_sys` contains in 'http://www.geopackage.org/data/geonames_belgium.gpkg[geonames_belgium.gpkg]'
+
+----
+sqlite> select * from gpkg_spatial_ref_sys;
+srs_name             srs_id      organization  organization_coordsys_id  definition  description
+-------------------  ----------  ------------  ------------------------  ----------  -----------
+Undefined Cartesian  -1          NONE          -1                        undefined
+Undefined Geographi  0           NONE          0                         undefined
+WGS 84               4326        EPSG          4326                      GEOGCS["WG
+----
+
+The `srs_id` column gives each SRS a unique identifier that is local to this GeoPackage file.
+This is the value that gets used throughout the GeoPackage file when you want to indicate what the applicable SRS is.
+`gpkg_contents.srs_id` that we looked at earlier needs to match one of the values in this column.
+
+`organization` and `organization_coordsys_id` are optional values.
+They can be used to describe the external identifier of an SRS.
+The third row uses these columns to state that this SRS is defined by http://www.epsg.org/[EPSG] and that EPSG assigned id http://www.epsg-registry.org/report.htm?type=selection&entity=urn:ogc:def:crs:EPSG::4326&reportDetail=short&style=urn:uuid:report-style:default-with-code&style_name=OGP%20Default%20With%20Code&title=[4326] to this SRS.
+Typically this gets written as EPSG:4326.
+
+`definition` provides the actual definition of the SRS.
+This is encoded using OGC's WKT encoding for SRSs.
+The query output above truncated this column.
+Here's the complete definition of the SRS.
+
+----
+sqlite> select definition from gpkg_spatial_ref_sys where srs_id = 4326;
+definition
+---------------------------------------------------------------------------------------------
+GEOGCS["WGS 84",
+  DATUM["WGS_1984",
+    SPHEROID["WGS 84",6378137,298.257223563, AUTHORITY["EPSG","7030"]],
+    AUTHORITY["EPSG","6326"]
+  ],
+  PRIMEM["Greenwich",0,AUTHORITY["EPSG"," 8901"]],
+  UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]],
+  AUTHORITY["EPSG","4326"]
+]
+----
+
+A common mistake is to assume that `srs_id` and `organization_coordsys_id` are interchangeable and that `organization` is always `EPSG`.
+That is often the case, but that's a common convention, not something that the GeoPackage specification requires.
+Always query `gpkg_spatial_ref_sys` to ensure that the SRS is what you expect it is.
 
 === Working With Features
+
+Lets look at the `places` data set in 'http://www.geopackage.org/data/geonames_belgium.gpkg[geonames_belgium.gpkg]' in more detail.
+First we'll use the `table_info` pragma to get a better idea of the properties of the places features.
+
+----
+sqlite> pragma table_info('places');
+cid         name        type        notnull     dflt_value  pk
+----------  ----------  ----------  ----------  ----------  ----------
+0           geonameid   INTEGER     0                       1
+1           name        TEXT        0                       0
+2           feature_co  TEXT        0                       0
+3           country_co  TEXT        0                       0
+4           location    Point       0                       0
+----
+
+The first property, `geonameid`, is an `INTEGER` and is also the primary key of the table.
+This is actually a requirement in GeoPackage feature tables.
+Every feature table needs an integer primary key to ensure there is a simple, uniform way to reference individual features.
+This makes it much easier to define foreign key relationships in the database as we'll see later when covering spatial indexes.
 
 === Loading Tiles
 
