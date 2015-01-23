@@ -26,7 +26,7 @@ You can use it in C using the low-level SQLite C API, in Java through a JDBC dri
 To keep this guide as simple as possible there won't be any programming involved.
 Instead we'll be using the http://www.sqlite.org/cli.html[SQLite shell].
 The SQLite shell is a command-line tool that allows you to interactively perform SQL queries on a SQLite database.
-It's SQLite's http://en.wikipedia.org/wiki/Read%E2%80%93eval%E2%80%93print_loop[REPL].
+It's SQLites http://en.wikipedia.org/wiki/Read%E2%80%93eval%E2%80%93print_loop[REPL].
 
 Precompiled versions of the SQLite shell are available for most operating systems.
 
@@ -64,7 +64,6 @@ goodbye|20
 The `select` statement printed the result set as one row per line using `|` characters to delimit the columns.
 This isn't the most readable output format, so let's switched to nicely aligned columns and header display.
 This can be enabled using the `.header` and `.mode` commands.
-
 
 ----
 sqlite> .header on
@@ -296,11 +295,11 @@ cid         name        type        notnull     dflt_value  pk
 The first property, `geonameid`, is an `INTEGER` and is also the primary key of the table.
 This is actually a requirement in GeoPackage feature tables.
 Every feature table needs an integer primary key to ensure there is a simple, uniform way to reference individual features.
-This makes it much easier to define foreign key relationships in the database as we'll see later when covering spatial indexes.
+This makes it much easier to define foreign key relationships in the database as we'll see later when we cover spatial indexes.
 
 === Loading Tiles
 
-== Advanced Features
+== Advanced Capabilities
 
 === Speeding Up Spatial Queries
 
