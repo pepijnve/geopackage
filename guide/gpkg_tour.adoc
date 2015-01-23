@@ -26,13 +26,12 @@ You can use it in C using the low-level SQLite C API, in Java through a JDBC dri
 To keep this guide as simple as possible there won't be any programming involved.
 Instead we'll be using the http://www.sqlite.org/cli.html[SQLite shell].
 The SQLite shell is a command-line tool that allows you to interactively perform SQL queries on a SQLite database.
-It's SQLites http://en.wikipedia.org/wiki/Read%E2%80%93eval%E2%80%93print_loop[REPL].
 
 Precompiled versions of the SQLite shell are available for most operating systems.
 
 * A version for Microsoft Windows can be obtained from the http://sqlite.org/download.html[SQLite download page].
 * On Linux you can install it using your distributions package manager.
-  Look for a package called `sqlite` or something similar that contains the binary `/usr/bin/sqlite3`.
+  Look for a package called `sqlite3` or something similar that contains the binary `/usr/bin/sqlite3`.
 * On Mac OS X, the `sqlite3` shell is preinstalled.
   The version that ships with the operating system is quite old though so it might be interesting to install a more recent version using HomeBrew, MacPorts or some other package manager.
 
@@ -205,7 +204,7 @@ This shows us that there are nine different data sets inside this particular fil
 Each row specifies the name of the table containing the actual data, what kind of data it is, and some other basic metadata.
 
 The `data_type` column indicates the nature of the dataset.
-The base GeoPackage specification defines two types of data, `features` for Simple Feature data and `tiles` for image tile matrices.
+The base GeoPackage specification defines two types of data, `features` for data records with attributes and a geometry and `tiles` for image tile matrices.
 These provide a means to encoded data that is more or less equivalent to OGC's http://www.opengeospatial.org/standards/sfa[Simple Features] and http://www.opengeospatial.org/standards/wmts[Web Map Tile Service].
 
 The `min_x`, `min_y`, `max_x` and , `max_y` specify the area where the data set is located.
