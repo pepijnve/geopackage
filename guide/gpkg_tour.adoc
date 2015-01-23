@@ -1,0 +1,219 @@
+= A Tour of GeoPackage
+Pepijn Van Eeckhoudt <pepijn@vaneeckhoudt.net>
+
+== Introduction
+
+So you've heard about OGC's new GeoPackage format and you're wondering what it's all about.
+Reading the http://geopackage.org/spec[GeoPackage specification] can be a bit daunting.
+It's written for at a level of detail that's not relevant for people who just want to explore the format.
+There's no high-level description of what's inside a GeoPackage and what you can do with it.
+This guide intends to fill that gap.
+
+== The Basics
+
+=== A Brief Introduction to SQLite
+
+The GeoPackage format is based on the SQLite disk format.
+SQLite is a widely deployed embedded SQL database engine.
+What this means is that, in contrast to most SQL databases, the SQL engine does not run as a separate process on a different machine.
+Instead all the processing for your SQL queries is performed inside your own application using the SQLite runtime library.
+This library operates directly on the database files on disk.
+In the case of SQLite the entire database is conveniently packaged into a single file.
+
+SQLite has language bindings for most general purpose programming languages.
+You can use it in C using the low-level SQLite C API, in Java through a JDBC driver, in C# through an ADO.NET provider, ...
+
+To keep this guide as simple as possible there won't be any programming involved.
+Instead we'll be using the http://www.sqlite.org/cli.html[SQLite shell].
+The SQLite shell is a command-line tool that allows you to interactively perform SQL queries on a SQLite database.
+It's SQLite's http://en.wikipedia.org/wiki/Read%E2%80%93eval%E2%80%93print_loop[REPL].
+
+Precompiled versions of the SQLite shell are available for most operating systems.
+
+* A version for Microsoft Windows can be obtained from the http://sqlite.org/download.html[SQLite download page].
+* On Linux you can install it using your distributions package manager.
+  Look for a package called `sqlite` or something similar that contains the binary `/usr/bin/sqlite3`.
+* On Mac OS X, the `sqlite3` shell is preinstalled.
+  The version that ships with the operating system is quite old though so it might be interesting to install a more recent version using HomeBrew, MacPorts or some other package manager.
+
+To verify that you're ready to get started, open up a terminal (or command prompt) and run the `sqlite3` command.
+This should start the SQLite shell and show output similar to this
+
+----
+pepijn@windhoek:~$ sqlite3
+SQLite version 3.8.6 2014-08-15 11:46:33
+Enter ".help" for usage hints.
+Connected to a transient in-memory database.
+Use ".open FILENAME" to reopen on a persistent database.
+sqlite>
+----
+
+Once you see the `sqlite>` prompt you can start typing in and executing SQL queries.
+Let's start by creating a new table, inserting some data and querying the data.
+This example was taken from the SQLite manual.
+
+----
+sqlite> create table tbl1(one varchar(10), two smallint);
+sqlite> insert into tbl1 values('hello!',10);
+sqlite> insert into tbl1 values('goodbye', 20);
+sqlite> select * from tbl1;
+hello!|10
+goodbye|20
+----
+
+The `select` statement printed the result set as one row per line using `|` characters to delimit the columns.
+This isn't the most readable output format, so let's switched to nicely aligned columns and header display.
+This can be enabled using the `.header` and `.mode` commands.
+
+
+----
+sqlite> .header on
+sqlite> .mode column
+sqlite> select * from tbl1;
+one         two
+----------  ----------
+hello!      10
+goodbye     20
+----
+
+That's better!
+We'll be using this output mode in all the examples that follow.
+You don't need to repeat these commands for every single query, but you will need to reenter them if you restart the SQLite shell.
+
+Note that the `.header` and `.mode` commands are specific to the SQLite shell.
+This kind of commands are called a 'dot command' in the SQLite documentation.
+These commands either configure the SQLite shell or provide convenient ways to execute more complicated commands.
+You can get a list of the available dot commands using the `.help` dot command.
+
+One of the other very Another interesting dot command is the `.tables` command.
+It shows you a list of the tables contained in a SQLite database.
+
+----
+sqlite> .tables
+tbl1
+----
+
+Once you've located the table you're interested in you can use the `.schema` to show the schema of a table.
+This is displayed as the SQL statement that was used to create the table.
+Running this on the `tbl1` table will show you the following output:
+
+----
+sqlite> .schema tbl1
+CREATE TABLE tbl1(one varchar(10), two smallint);
+----
+
+This gives you an immediate idea of the available columns, their types and constraints.
+You can also retrieve this information in a parsed form using various `PRAGMA` SQL statements.
+The `table_info` will show you column names, types, default values, presence of a `not null` constraint, default values and participation in a primary key constraint.
+
+----
+sqlite> pragma table_info('tbl1');
+cid         name        type         notnull     dflt_value  pk
+----------  ----------  -----------  ----------  ----------  ----------
+0           one         varchar(10)  0                       0
+1           two         smallint     0                       0
+----
+
+The `.schema` command and the `table_info` pragma retrieve their results from the same source, https://www.sqlite.org/fileformat2.html#sqlite_master[the sqlite_master table].
+If you like you can query this table directly, but in most cases it's more convenient to use pragmas to extract the relevant bits of information.
+
+Armed with the `.tables` and `table_info` pragma we have all the tools we need to start investigating the contents of GeoPackage files.
+
+=== Opening a GeoPackage
+
+Let's start by downloading a file to experiment with.
+The http://www.geopackage.org/#sampledata[OGC GeoPackage website] has a number of sample files available that we can use for this.
+We'll use the 'http://www.geopackage.org/data/geonames_belgium.gpkg[Geonames data for Belgium]' file.
+It's not so large that it's impractical but still contains quite a lot of data.
+
+Once you've downloaded `geonames_belgium.gpkg` open it using the SQLite shell in a terminal.
+You can do this by passing the path to the file as a parameter to the SQLite shell.
+
+----
+pepijn@windhoek:~$ sqlite3 /home/pepijn/geonames_belgium.gpkg
+SQLite version 3.8.6 2014-08-15 11:46:33
+Enter ".help" for usage hints.
+sqlite>
+----
+
+Using `.tables` we can have a look at the tables contained in this file.
+
+----
+sqlite> .tables
+administrative                        rtree_places_location_node
+gpkg_contents                         rtree_places_location_parent
+gpkg_data_column_constraints          rtree_places_location_rowid
+gpkg_data_columns                     rtree_roads_location
+gpkg_extensions                       rtree_roads_location_node
+gpkg_geometry_columns                 rtree_roads_location_parent
+gpkg_metadata                         rtree_roads_location_rowid
+gpkg_metadata_reference               rtree_spots_location
+gpkg_spatial_ref_sys                  rtree_spots_location_node
+gpkg_tile_matrix                      rtree_spots_location_parent
+gpkg_tile_matrix_set                  rtree_spots_location_rowid
+hydrography                           rtree_terrain_location
+leisure                               rtree_terrain_location_node
+places                                rtree_terrain_location_parent
+roads                                 rtree_terrain_location_rowid
+rtree_administrative_location         rtree_undersea_location
+rtree_administrative_location_node    rtree_undersea_location_node
+rtree_administrative_location_parent  rtree_undersea_location_parent
+rtree_administrative_location_rowid   rtree_undersea_location_rowid
+rtree_hydrography_location            rtree_vegetation_location
+rtree_hydrography_location_node       rtree_vegetation_location_node
+rtree_hydrography_location_parent     rtree_vegetation_location_parent
+rtree_hydrography_location_rowid      rtree_vegetation_location_rowid
+rtree_leisure_location                spots
+rtree_leisure_location_node           terrain
+rtree_leisure_location_parent         undersea
+rtree_leisure_location_rowid          vegetation
+rtree_places_location
+----
+
+That's an intimidating list of tables for something that claims to be a simple format.
+Don't worry though, it's not all that complicated in practice.
+We'll cover most of these tables in this guide explaining the intended use of each one.
+
+All the tables that start with `gpkg_` are GeoPackage metadata tables.
+Their schema is fixed and defined by the specification.
+The `rtree_` tables are spatial index which are covered in detail later on.
+All the other tables contain the actual data itself.
+
+There's no need to use `.tables` to determine the datasets that are present in a GeoPackage though.
+Each GeoPackage file contains a table of contents that lists the datasets along with some additional metadata.
+This table of contents is the `gpkg_contents` table which we'll look at next.
+
+=== Finding Out What's Inside
+
+With 'http://www.geopackage.org/data/geonames_belgium.gpkg[geonames_belgium.gpkg]' open in the SQLite shell, let's query the `gpkg_contents` table to see which data sets it contains.
+
+----
+sqlite> select * from gpkg_contents;
+table_name      data_type   identifier      description                      last_change               min_x       min_y       max_x       max_y       srs_id
+--------------  ----------  --------------  -------------------------------  ------------------------  ----------  ----------  ----------  ----------  ----------
+administrative  features    administrative  Countries, states, regions, ...  2014-03-05T15:31:28.000Z  0.62944     48.73167    7.51111     52.26862    4326
+hydrography     features    hydrography     Streams, lakes, ...              2014-03-05T15:31:37.000Z  0.63333     48.73231    7.50984     52.26775    4326
+leisure         features    leisure         Parks, areas, ...                2014-03-05T15:31:46.000Z  0.66667     48.74395    7.5         52.2681     4326
+places          features    places          Cities, villages, ...            2014-03-05T15:31:56.000Z  0.62907     48.73143    7.51168     52.26842    4326
+roads           features    roads           Roads, railroads, ...            2014-03-05T15:32:05.000Z  0.7027      48.771      7.15943     52.24138    4326
+spots           features    spots           Spots, buildings, farms          2014-03-05T15:32:14.000Z  0.62995     48.7316     7.5116      52.26855    4326
+terrain         features    terrain         Mountains, hilss, rocks, ...     2014-03-05T15:32:23.000Z  0.7         48.75576    7.51096     52.26858    4326
+undersea        features    undersea        Undersea                         2014-03-05T15:32:31.000Z  1.95        51.23333    3.0         51.63333    4326
+vegetation      features    vegetation      Forests, heaths, ...             2014-03-05T15:32:39.000Z  0.6918      48.73333    7.50873     52.26821    4326
+----
+
+The `gpkg_contents` table provides basic metadata for each dataset.
+
+The `data_type` column indicates the nature of the dataset.
+This can be set to either `features` or `tiles` to indicate geographic features or imagery tile matrices respectively.
+This particular GeoPackage file happens to only contain feature data.
+
+
+=== Working With Features
+
+=== Loading Tiles
+
+== Advanced Features
+
+=== Speeding Up Spatial Queries
+
