@@ -5,7 +5,7 @@ Pepijn Van Eeckhoudt <pepijn@vaneeckhoudt.net>
 
 So you've heard about OGC's new GeoPackage format and you're wondering what it's all about.
 Reading the http://geopackage.org/spec[GeoPackage specification] can be a bit daunting.
-It's written for at a level of detail that's not relevant for people who just want to explore the format.
+It's written at a level of detail that's not relevant for people who just want to explore the format.
 There's no high-level description of what's inside a GeoPackage and what you can do with it.
 This guide intends to fill that gap.
 
